@@ -125,7 +125,9 @@ exports.checkToken = (req, res) => {
     }
 }
 
-exports.crateUser = (req, res) => {
+exports.crateUser = async (req, res) => {
+
+    let password = await bcrypt.hash("123456", 10);
     Users.countDocuments().then(data => {
         if (data == 0) {
             const user = new Users({
@@ -133,7 +135,7 @@ exports.crateUser = (req, res) => {
                 first_name:"name",
                 last_name:"name",
                 email:"email",
-                password: bcrypt.hash("123456", 10)
+                password
             });
             user.save();
             res.send('user created');
