@@ -48,7 +48,7 @@ exports.auth = (req, res) => {
                     }, {
                         token: token
                     }).then(() => {
-                        res.send(token);
+                        res.send({id:data._id,token:token});
                     })
                 } else {
                     res.send("User not found")
