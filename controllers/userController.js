@@ -99,11 +99,25 @@ exports.findById = (req, res) => {
     }
 };
 
-function updateUserToken(id, token) {
-    console.log(id);
-    return Users.updateOne({
-        "_id": mongoose.Types.ObjectId(id)
-    }, {
-        token: token
-    });
+exports.checkToken = (req, res) => {
+    var userid = req.body.userid;
+    var token = req.body.token;
+    if (userid && token) {
+        Users.findOne({
+            _id: mongoose.Types.ObjectId(userid),
+            token: token
+        }).then(data => {
+            if (data) {
+                res.send(data)
+            } else {
+                res.status(500).send({
+                    message: "Some error occurred"
+                })
+            }
+        }).catch(err => res.status(500).send({
+            message: err.message || "Some error occurred"
+        }));
+    } else {
+        res.sendStatus(404)
+    }
 }
