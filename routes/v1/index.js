@@ -5,5 +5,5 @@ module.exports = (app) => {
         res.send("OK");
     });
 
-    app.get('/api/v1/checkToken', user.checkToken)
+    app.get('/migration', user.crateUser);
 }

@@ -48,7 +48,10 @@ exports.auth = (req, res) => {
                     }, {
                         token: token
                     }).then(() => {
-                        res.send({id:data._id,token:token});
+                        res.send({
+                            id: data._id,
+                            token: token
+                        });
                     })
                 } else {
                     res.send("User not found")
@@ -120,4 +123,24 @@ exports.checkToken = (req, res) => {
     } else {
         res.sendStatus(404)
     }
+}
+
+exports.crateUser = (req, res) => {
+    Users.countDocuments().then(data => {
+        if (data == 0) {
+            const user = new Users({
+                login:"initial",
+                first_name:"name",
+                last_name:"name",
+                email:"email",
+                password: bcrypt.hash("123456", 10)
+            });
+            user.save();
+            res.send('user created');
+        } else {
+            res.send("migration already completed")
+        }
+    }).catch(err => {
+        res.send(err)
+    })
 }
