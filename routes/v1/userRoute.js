@@ -9,7 +9,7 @@ module.exports = (app) => {
     // return specific document
     // router.get('/', user.findOne);
     // auth specific user
-    router.get('/', user.auth);
+    router.post('/auth', user.auth);
     // create new document
     router.post('/', user.create);
     // update document

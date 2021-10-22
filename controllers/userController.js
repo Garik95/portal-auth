@@ -30,31 +30,42 @@ exports.create = async (req, res) => {
 exports.auth = (req, res) => {
     if (Object.keys(req.body).length > 0 && Object.keys(req.body).includes('email') && Object.keys(req.body).includes('password')) {
         Users.findOne({
-                email: req.body.email
-            })
-            .then(data => {
-                if (data && bcrypt.compare(String(req.body.password)), String(data.password)) {
-                    // Create token
-                    const token = jwt.sign({
+            email: req.body.email
+        })
+            .then(async data => {
+                if (data) {
+                    let compare_password = await bcrypt.compare(String(req.body.password), String(data.password));
+                    if (compare_password) {
+                        // Create token
+                        const token = jwt.sign({
                             user_id: data._id,
-                            email: data.email
+                            email: data.email,
                         },
-                        process.env.JWTPRIVATEKEY, {
+                            process.env.JWTPRIVATEKEY, {
                             expiresIn: "2h",
                         }
-                    );
-                    Users.updateOne({
-                        "_id": data._id
-                    }, {
-                        token: token
-                    }).then(() => {
-                        res.send({
-                            id: data._id,
+                        );
+                        Users.updateOne({
+                            "_id": data._id
+                        }, {
                             token: token
-                        });
-                    })
+                        }).then(() => {
+                            res.send({
+                                id: data._id,
+                                token: token,
+                                first_name: data.first_name,
+                                last_name: data.last_name,
+                            });
+                        })
+                    } else {
+                        res.status(400).send({
+                            message: "Password is incorrect!"
+                        })
+                    }
                 } else {
-                    res.send("User not found")
+                    res.status(400).send({
+                        message: "User not found!"
+                    })
                 }
             })
             .catch(err => {
@@ -63,6 +74,7 @@ exports.auth = (req, res) => {
                 });
             });
     } else {
+        console.log('there');
         res.send('Wrong params');
     }
 }
@@ -89,14 +101,14 @@ exports.findById = (req, res) => {
         var id = req.params.id
         if (mongoose.Types.ObjectId.isValid(id))
             Users.findById(id)
-            .then(data => {
-                res.send(data);
-            })
-            .catch(err => {
-                res.status(500).send({
-                    message: err.message || "Some error occurred"
+                .then(data => {
+                    res.send(data);
+                })
+                .catch(err => {
+                    res.status(500).send({
+                        message: err.message || "Some error occurred"
+                    });
                 });
-            });
     } catch (err) {
         res.send(err)
     }
@@ -131,10 +143,10 @@ exports.crateUser = async (req, res) => {
     Users.countDocuments().then(data => {
         if (data == 0) {
             const user = new Users({
-                login:"initial",
-                first_name:"name",
-                last_name:"name",
-                email:"email",
+                login: "initial",
+                first_name: "name",
+                last_name: "name",
+                email: "email",
                 password
             });
             user.save();
