@@ -1,10 +1,5 @@
 module.exports = (mongoose) => {
   const userSchema = new mongoose.Schema({
-    login: {
-      type: String,
-      unique: true,
-      required: true
-    },
     first_name: {
       type: String,
       required: true

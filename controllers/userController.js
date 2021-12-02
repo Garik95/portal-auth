@@ -2,7 +2,11 @@ const db = require('../models/index');
 const Users = db.Users;
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const mongoose = require('mongoose')
+const mongoose = require('mongoose');
+const dbconfig = require('../dbconfig');
+const redis = require('redis');
+const rd = redis.createClient(dbconfig.redis);
+
 
 exports.create = async (req, res) => {
     //Encrypt user password
@@ -30,32 +34,36 @@ exports.create = async (req, res) => {
 exports.auth = (req, res) => {
     if (Object.keys(req.body).length > 0 && Object.keys(req.body).includes('email') && Object.keys(req.body).includes('password')) {
         Users.findOne({
-            email: req.body.email
-        })
+                email: req.body.email
+            })
             .then(async data => {
                 if (data) {
                     let compare_password = await bcrypt.compare(String(req.body.password), String(data.password));
                     if (compare_password) {
                         // Create token
                         const token = jwt.sign({
-                            user_id: data._id,
-                            email: data.email,
-                        },
-                            process.env.JWTPRIVATEKEY, {
-                            expiresIn: "2h",
-                        }
+                                user_id: data._id,
+                                email: data.email,
+                            },
+                            "IPAKPASSSECRET"
                         );
                         Users.updateOne({
                             "_id": data._id
                         }, {
                             token: token
                         }).then(() => {
-                            res.send({
-                                id: data._id,
-                                token: token,
-                                first_name: data.first_name,
-                                last_name: data.last_name,
-                            });
+                            var key = "authToken:" + data._id
+                            rd.set(key, token, (err, result) => {
+                                if (err) throw err;
+                                else {
+                                    res.send({
+                                        id: data._id,
+                                        token: token,
+                                        first_name: data.first_name,
+                                        last_name: data.last_name,
+                                    });
+                                }
+                            })
                         })
                     } else {
                         res.status(400).send({
@@ -96,11 +104,14 @@ exports.auth = (req, res) => {
 //     }
 // };
 
-exports.findById = (req, res) => {
-    try {
-        var id = req.params.id
-        if (mongoose.Types.ObjectId.isValid(id))
-            Users.findById(id)
+exports.findById = async (req, res) => {
+    if (await checkSystem(req)) {
+        try {
+            var id = req.params.id
+            if (mongoose.Types.ObjectId.isValid(id))
+                Users.findById(id, {
+                    password: 0
+                })
                 .then(data => {
                     res.send(data);
                 })
@@ -109,10 +120,28 @@ exports.findById = (req, res) => {
                         message: err.message || "Some error occurred"
                     });
                 });
-    } catch (err) {
-        res.send(err)
+        } catch (err) {
+            res.send(err)
+        }
+    } else {
+        res.sendStatus(404)
     }
+
 };
+
+exports.findAll = async (req, res) => {
+    if (await checkSystem(req)) {
+        Users.find({}, {
+            password: 0
+        }).then(response => {
+            res.send(response)
+        }).catch(err => {
+            res.send(err)
+        })
+    } else {
+        res.sendStatus(404)
+    }
+}
 
 exports.checkToken = (req, res) => {
     var userid = req.body.userid;
@@ -143,7 +172,6 @@ exports.crateUser = async (req, res) => {
     Users.countDocuments().then(data => {
         if (data == 0) {
             const user = new Users({
-                login: "initial",
                 first_name: "name",
                 last_name: "name",
                 email: "email",
@@ -156,5 +184,17 @@ exports.crateUser = async (req, res) => {
         }
     }).catch(err => {
         res.send(err)
+    })
+}
+
+
+function checkSystem(req) {
+    return new Promise(resolve => {
+        rd.get("system:" + req.headers.systemid, (err, result) => {
+            if (err) throw err;
+            else {
+                resolve(result == req.headers.systemtoken)
+            }
+        })
     })
 }

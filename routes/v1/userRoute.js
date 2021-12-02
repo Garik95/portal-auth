@@ -3,7 +3,7 @@ module.exports = (app) => {
 
     var router = require("express").Router();
     // return all documents
-    // router.get('/', user.findAll);
+    router.get('/', user.findAll);
     // return specific document by ID
     router.get('/:id', user.findById);
     // return specific document

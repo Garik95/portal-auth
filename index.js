@@ -21,6 +21,7 @@ require('./routes/v1')(app);
 // specific routes
 require('./routes/v1/testRoute')(app);
 require('./routes/v1/userRoute')(app);
+require('./routes/v1/systemRoute')(app);
 
 // handle undefined routes
 app.use("*", (req, res) => {
