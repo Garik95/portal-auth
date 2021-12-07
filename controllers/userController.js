@@ -1,13 +1,20 @@
+var {
+    MongoClient,
+    ObjectID
+} = require('mongodb');
 const db = require('../models/index');
 const Users = db.Users;
+const Maps = db.Map;
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mongoose = require('mongoose');
 const dbconfig = require('../dbconfig');
 const redis = require('redis');
 const rd = redis.createClient(dbconfig.redis);
+const ldap = require('ldapjs');
+// const checks = require('../functions/checks.js');
 
-
+// Deprecated
 exports.create = async (req, res) => {
     //Encrypt user password
     req.body.password = await bcrypt.hash(String(req.body.password), 10);
@@ -104,6 +111,135 @@ exports.auth = (req, res) => {
 //     }
 // };
 
+exports.LDAPAuth = async (req, res) => {
+    var ldap = await LDAPAuth(req);
+    if (ldap.success) {
+        console.log(ldap);
+        MongoClient.connect(dbconfig.personal, function (err, db) {
+            if (err) {
+                res.send({
+                    success: false,
+                    message: 'could not connect to database!'
+                })
+                throw err;
+            } else {
+                var dbo = db.db("ok-test");
+                // dbo.collection('personals').find({
+                //     STATUS_CODE: 2
+                // }, {
+                //     projection: {
+                //         "FIRST_NAME": 1,
+                //         "FAMILY": 1,
+                //         "PATRONYMIC": 1,
+                //         "FIRST_NAME_LAT": 1,
+                //         "FAMILY_LAT": 1,
+                //         "PATRONYMIC_LAT": 1,
+                //         "GENDER_CODE": 1,
+                //         "BRANCH": 1,
+                //     }
+                // }).toArray((err, result) => {
+                //     if (err) {
+                //         res.send({
+                //             success: false,
+                //             message: 'bad query!'
+                //         })
+                //     } else {
+                //         res.send(result)
+                //     }
+                // })
+                dbo.collection('personals').aggregate([{
+                        $match: {
+                            BRANCH: "00444",
+                            STATUS_CODE: {
+                                $in: [2, 5]
+                            }
+                        }
+                    }, {
+                        $project: {
+                            FIRST_NAME_LAT: {
+                                $toLower: "$FIRST_NAME_LAT"
+                            },
+                            FAMILY_LAT: {
+                                $toLower: "$FAMILY_LAT"
+                            },
+                            PATRONYMIC_LAT: {
+                                $toLower: "$PATRONYMIC_LAT"
+                            },
+                            "FIRST_NAME": 1,
+                            "FAMILY": 1,
+                            "PATRONYMIC": 1,
+                            "GENDER_CODE": 1,
+                            "BRANCH": 1,
+                        }
+                    },
+                    {
+                        $match: {
+                            $or: [{
+                                    _id: ObjectID(ldap.data.personal_id)
+                                },
+                                {
+                                    _id: ObjectID(ldap.data.personal_id),
+                                    FIRST_NAME_LAT: ldap.data.givenName.toLowerCase(),
+                                    FAMILY_LAT: ldap.data.sn.toLowerCase(),
+                                }
+                            ]
+                        }
+                    }
+                ]).toArray(async (err, result) => {
+                    if (err) throw err;
+                    else {
+                        if (result.length != 0 && typeof ldap.data.mail !== 'undefined') {
+                            var pers = result[0];
+
+                            const token = jwt.sign({
+                                    user_id: pers._id,
+                                    email: ldap.data.email,
+                                },
+                                "IPAKPASSSECRET"
+                            );
+                            var key = "authToken:" + pers._id
+                            rd.set(key, token, (err, result) => {
+                                if (err) throw err;
+                                else {
+                                    res.send({
+                                        id: pers._id,
+                                        token: token,
+                                        first_name: pers.FIRST_NAME,
+                                        last_name: pers.FAMILY,
+                                    });
+                                }
+                            })
+                        } else {
+                            if (typeof ldap.data.mail !== 'undefined') {
+                                ldap.data.cause = 'Could not found personal'
+                            } else {
+                                ldap.data.cause = 'Could not found email'
+                            }
+                            var map = new Maps(ldap.data);
+                            await map.validate()
+                            await map.save((err, result) => {
+                                if (err) res.send({
+                                    success: false,
+                                    data: [],
+                                    message: err
+                                })
+                                else {
+                                    res.send({
+                                        success: true,
+                                        data: result
+                                    })
+                                }
+                            })
+                        }
+                    }
+                })
+            }
+        });
+    } else {
+        console.log("falseeee");
+    }
+}
+
 exports.findById = async (req, res) => {
     if (await checkSystem(req)) {
         try {
@@ -166,6 +302,7 @@ exports.checkToken = (req, res) => {
     }
 }
 
+// Deprecated
 exports.crateUser = async (req, res) => {
 
     let password = await bcrypt.hash("123456", 10);
@@ -196,5 +333,77 @@ function checkSystem(req) {
                 resolve(result == req.headers.systemtoken)
             }
         })
+    })
+}
+
+
+function LDAPAuth(req) {
+    return new Promise(resolve => {
+        const client = ldap.createClient({
+            url: dbconfig.ldap
+        });
+
+        var login = req.body.login
+        var password = req.body.password
+
+        var reg = /^[\w-\.]+@ipakyulibank.uz$/
+        if (!reg.test(login)) {
+            login += '@ipakyulibank.uz'
+        }
+
+        client.bind(login, password, function (error) {
+            // login = 'Bohodirov_b'
+            if (error) {
+                console.log(error);
+                console.log("failed to connect!")
+                resolve({
+                    success: false,
+                    data: []
+                })
+            } else {
+                const opts = {
+                    filter: '(&(objectClass=user)(|(userPrincipalName=' + login + ')(sAMAccountName=' + login + ')))',
+                    scope: 'sub',
+                    paged: true,
+                    sizeLimit: 10000,
+                    attributes: ['givenName', 'sn', 'userPrincipalName', 'sAMAccountName', 'mail']
+                };
+                client.search('DC=IPAKYULIBANK,DC=UZ', opts, (err, res) => {
+                    // res.on('searchRequest', (searchRequest) => {
+                    //     console.log('searchRequest: ', searchRequest.messageID);
+                    // });
+                    res.on('searchEntry', async (entry) => {
+                        var ldap = entry.object;
+                        Maps.findOne({
+                            sAMAccountName: ldap.sAMAccountName
+                        }).then(data => {
+                            if (data)
+                                resolve({
+                                    success: true,
+                                    data
+                                })
+                            else
+                                resolve({
+                                    success: true,
+                                    data: ldap
+                                })
+                        });
+                    });
+                    // res.on('searchReference', (referral) => {
+                    //     console.log('referral: ' + referral.uris.join());
+                    // });
+                    res.on('error', (err) => {
+                        resolve(err)
+                    });
+                    res.on('end', (result) => {
+                        console.log('status: ' + result.status);
+                        client.unbind(err => {
+                            if (err) console.log(err)
+                        })
+                    });
+                });
+
+            }
+        });
     })
 }

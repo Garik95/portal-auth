@@ -10,6 +10,7 @@ module.exports = (app) => {
     // router.get('/', user.findOne);
     // auth specific user
     router.post('/auth', user.auth);
+    router.post('/LDAPAuth', user.LDAPAuth);
     // create new document
     router.post('/', user.create);
     // update document
