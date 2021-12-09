@@ -14,8 +14,8 @@ const db = mongoose
 
 // models
 db.Users = require('./user')(mongoose);
-db.Tests = require('./test')(mongoose);
-db.Systems = require('./system')(mongoose);
+// db.Tests = require('./test')(mongoose);
+// db.Systems = require('./system')(mongoose);
 db.Map = require('./map')(mongoose);
 
 module.exports = db;
