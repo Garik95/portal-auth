@@ -3,16 +3,16 @@ module.exports = (app) => {
 
     var router = require("express").Router();
     // return all documents
-    router.get('/', user.findAll);
+    // router.get('/', user.findAll);
     // return specific document by ID
-    router.get('/:id', user.findById);
+    // router.get('/:id', user.findById);
     // return specific document
     // router.get('/', user.findOne);
     // auth specific user
-    router.post('/auth', user.auth);
+    // router.post('/auth', user.auth);
     router.post('/LDAPAuth', user.LDAPAuth);
     // create new document
-    router.post('/', user.create);
+    // router.post('/', user.create);
     // update document
     // router.put('/:id', user.update);
     // delete document

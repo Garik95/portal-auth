@@ -27,6 +27,4 @@ module.exports = (app) => {
             }
         })
     })
-
-    app.get('/migration', user.crateUser);
 }
