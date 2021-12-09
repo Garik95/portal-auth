@@ -237,6 +237,12 @@ exports.LDAPAuth = async (req, res) => {
         });
     } else {
         console.log("falseeee");
+        res.send({
+            success: false,
+            data: {},
+            message: 'Authorization error!'
+        })
+
     }
 }
 
