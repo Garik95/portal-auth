@@ -13,4 +13,4 @@ deploy:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
   script:
-    - ssh -o StrictHostKeyChecking=no carpe@10.10.12.105 "cd /home/carpe/projects && rm -rf portal-auth/ && git clone http://10.10.12.67:8929/bank/auth/portal-auth.git && cd portal-auth/ && npm i && PORT=6770 pm2 start index.js --name portal-auth -f"
+    - ssh -o StrictHostKeyChecking=no carpe@10.10.12.105 "cd /home/carpe/projects && rm -rf portal-auth/ && git clone http://10.10.12.67:8929/bank/auth/portal-auth.git && cd portal-auth/ && npm i && pm2 delete portal-auth && PORT=6770 pm2 start index.js --name portal-auth -f"
