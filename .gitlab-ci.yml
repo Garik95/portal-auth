@@ -1,0 +1,16 @@
+deploy:
+  #image: alpine
+  before_script:
+    - export HTTP_PROXY="http://10.10.12.38:3128"
+    - export HTTPS_PROXY="http://10.10.12.38:3128"
+    - export NO_PROXY=".noproxy.com,.noproxy2.com"
+    - env | grep PROXY
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - env | grep PROXY
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    #- echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - ssh -o StrictHostKeyChecking=no carpe@10.10.12.105 "cd /home/carpe/projects/portal-auth && rm -rf portal-auth/ && git clone http://10.10.12.67:8929/bank/auth/portal-auth.git && cd portal-auth/ && npm i && pm2 delete portal-auth && PORT=6770 pm2 start index.js --name portal-auth -f"
