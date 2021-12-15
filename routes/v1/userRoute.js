@@ -3,9 +3,9 @@ module.exports = (app) => {
 
     var router = require("express").Router();
     // return all documents
-    // router.get('/', user.findAll);
+    router.get('/all', user.findAll);
     // return specific document by ID
-    // router.get('/:id', user.findById);
+    router.get('/emps', user.findAllPersonal);
     // return specific document
     // router.get('/', user.findOne);
     // auth specific user
@@ -14,7 +14,7 @@ module.exports = (app) => {
     // create new document
     // router.post('/', user.create);
     // update document
-    // router.put('/:id', user.update);
+    router.put('/:id', user.update);
     // delete document
     // router.delete('/:id', user.delete);
 

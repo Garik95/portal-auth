@@ -148,43 +148,43 @@ exports.LDAPAuth = async (req, res) => {
                 //     }
                 // })
                 dbo.collection('personals').aggregate([{
-                        $match: {
-                            BRANCH: "00444",
-                            STATUS_CODE: {
-                                $in: [2, 5]
-                            }
-                        }
-                    }, {
-                        $project: {
-                            FIRST_NAME_LAT: {
-                                $toLower: "$FIRST_NAME_LAT"
-                            },
-                            FAMILY_LAT: {
-                                $toLower: "$FAMILY_LAT"
-                            },
-                            PATRONYMIC_LAT: {
-                                $toLower: "$PATRONYMIC_LAT"
-                            },
-                            "FIRST_NAME": 1,
-                            "FAMILY": 1,
-                            "PATRONYMIC": 1,
-                            "GENDER_CODE": 1,
-                            "BRANCH": 1,
-                        }
-                    },
-                    {
-                        $match: {
-                            $or: [{
-                                    _id: ObjectID(ldap.data.personal_id)
-                                },
-                                {
-                                    _id: ObjectID(ldap.data.personal_id),
-                                    FIRST_NAME_LAT: ldap.data.givenName.toLowerCase(),
-                                    FAMILY_LAT: ldap.data.sn.toLowerCase(),
-                                }
-                            ]
+                    $match: {
+                        BRANCH: "00444",
+                        STATUS_CODE: {
+                            $in: [2, 5]
                         }
                     }
+                }, {
+                    $project: {
+                        FIRST_NAME_LAT: {
+                            $toLower: "$FIRST_NAME_LAT"
+                        },
+                        FAMILY_LAT: {
+                            $toLower: "$FAMILY_LAT"
+                        },
+                        PATRONYMIC_LAT: {
+                            $toLower: "$PATRONYMIC_LAT"
+                        },
+                        "FIRST_NAME": 1,
+                        "FAMILY": 1,
+                        "PATRONYMIC": 1,
+                        "GENDER_CODE": 1,
+                        "BRANCH": 1,
+                    }
+                },
+                {
+                    $match: {
+                        $or: [{
+                            _id: ObjectID(ldap.data.personal_id)
+                        },
+                        {
+                            _id: ObjectID(ldap.data.personal_id),
+                            FIRST_NAME_LAT: ldap.data.givenName.toLowerCase(),
+                            FAMILY_LAT: ldap.data.sn.toLowerCase(),
+                        }
+                        ]
+                    }
+                }
                 ]).toArray(async (err, result) => {
                     if (err) throw err;
                     else {
@@ -192,9 +192,9 @@ exports.LDAPAuth = async (req, res) => {
                             var pers = result[0];
 
                             const token = jwt.sign({
-                                    user_id: pers._id,
-                                    email: ldap.data.email,
-                                },
+                                user_id: pers._id,
+                                email: ldap.data.email,
+                            },
                                 "IPAKPASSSECRET"
                             );
                             var key = "authToken:" + pers._id
@@ -271,19 +271,63 @@ exports.LDAPAuth = async (req, res) => {
 
 // };
 
-// exports.findAll = async (req, res) => {
-//     if (await checkSystem(req)) {
-//         Users.find({}, {
-//             password: 0
-//         }).then(response => {
-//             res.send(response)
-//         }).catch(err => {
-//             res.send(err)
-//         })
-//     } else {
-//         res.sendStatus(404)
-//     }
-// }
+exports.findAllPersonal = async (req, res) => {
+
+    MongoClient.connect(dbconfig.personal, function (err, db) {
+        var dbo = db.db("ok-test");
+
+        dbo.collection('personals').find({
+            "BRANCH": '00444',
+            "STATUS_CODE": {
+                "$in": [2, 5]
+            }
+        }).toArray((err, result) => {
+            if (err) throw err;
+            res.send(result)
+        })
+    });
+}
+
+exports.findAll = async (req, res) => {
+    Maps.find({
+        "$or": [
+            {
+                "personal_id": null
+            },
+            {
+                "mail": {
+                    "$exists": false
+                }
+            }
+        ]
+    }, {
+        password: 0
+    }).then(response => {
+        res.send(response)
+    }).catch(err => {
+        res.send(err)
+    })
+}
+
+exports.update = async (req, res) => {
+    try {
+        var item = req.body;
+        console.log(item);
+        if (mongoose.Types.ObjectId.isValid(item._id)) {
+            Maps.updateOne({ _id: item._id }, item)
+                .then(data => {
+                    res.send(data);
+                })
+                .catch(err => {
+                    res.status(500).send({
+                        message: err.message || "Some error occurred"
+                    });
+                });
+        }
+    } catch (err) {
+        res.send(err)
+    }
+}
 
 // exports.checkToken = (req, res) => {
 //     var userid = req.body.userid;
