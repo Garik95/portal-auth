@@ -12,6 +12,7 @@ const dbconfig = require('../dbconfig');
 const redis = require('redis');
 const rd = redis.createClient(dbconfig.redis);
 const ldap = require('ldapjs');
+const nodemailer = require("nodemailer");
 // const checks = require('../functions/checks.js');
 
 // Deprecated
@@ -148,43 +149,43 @@ exports.LDAPAuth = async (req, res) => {
                 //     }
                 // })
                 dbo.collection('personals').aggregate([{
-                    $match: {
-                        BRANCH: "00444",
-                        STATUS_CODE: {
-                            $in: [2, 5]
+                        $match: {
+                            BRANCH: "00444",
+                            STATUS_CODE: {
+                                $in: [2, 5]
+                            }
+                        }
+                    }, {
+                        $project: {
+                            FIRST_NAME_LAT: {
+                                $toLower: "$FIRST_NAME_LAT"
+                            },
+                            FAMILY_LAT: {
+                                $toLower: "$FAMILY_LAT"
+                            },
+                            PATRONYMIC_LAT: {
+                                $toLower: "$PATRONYMIC_LAT"
+                            },
+                            "FIRST_NAME": 1,
+                            "FAMILY": 1,
+                            "PATRONYMIC": 1,
+                            "GENDER_CODE": 1,
+                            "BRANCH": 1,
+                        }
+                    },
+                    {
+                        $match: {
+                            $or: [{
+                                    _id: ObjectID(ldap.data.personal_id)
+                                },
+                                {
+                                    _id: ObjectID(ldap.data.personal_id),
+                                    FIRST_NAME_LAT: ldap.data.givenName.toLowerCase(),
+                                    FAMILY_LAT: ldap.data.sn.toLowerCase(),
+                                }
+                            ]
                         }
                     }
-                }, {
-                    $project: {
-                        FIRST_NAME_LAT: {
-                            $toLower: "$FIRST_NAME_LAT"
-                        },
-                        FAMILY_LAT: {
-                            $toLower: "$FAMILY_LAT"
-                        },
-                        PATRONYMIC_LAT: {
-                            $toLower: "$PATRONYMIC_LAT"
-                        },
-                        "FIRST_NAME": 1,
-                        "FAMILY": 1,
-                        "PATRONYMIC": 1,
-                        "GENDER_CODE": 1,
-                        "BRANCH": 1,
-                    }
-                },
-                {
-                    $match: {
-                        $or: [{
-                            _id: ObjectID(ldap.data.personal_id)
-                        },
-                        {
-                            _id: ObjectID(ldap.data.personal_id),
-                            FIRST_NAME_LAT: ldap.data.givenName.toLowerCase(),
-                            FAMILY_LAT: ldap.data.sn.toLowerCase(),
-                        }
-                        ]
-                    }
-                }
                 ]).toArray(async (err, result) => {
                     if (err) throw err;
                     else {
@@ -192,9 +193,9 @@ exports.LDAPAuth = async (req, res) => {
                             var pers = result[0];
 
                             const token = jwt.sign({
-                                user_id: pers._id,
-                                email: ldap.data.email,
-                            },
+                                    user_id: pers._id,
+                                    email: ldap.data.email,
+                                },
                                 "IPAKPASSSECRET"
                             );
                             var key = "authToken:" + pers._id
@@ -290,8 +291,7 @@ exports.findAllPersonal = async (req, res) => {
 
 exports.findAll = async (req, res) => {
     Maps.find({
-        "$or": [
-            {
+        "$or": [{
                 "personal_id": null
             },
             {
@@ -314,8 +314,11 @@ exports.update = async (req, res) => {
         var item = req.body;
         console.log(item);
         if (mongoose.Types.ObjectId.isValid(item._id)) {
-            Maps.updateOne({ _id: item._id }, item)
+            Maps.updateOne({
+                    _id: item._id
+                }, item)
                 .then(data => {
+                    console.log(sendMail(item.mail));
                     res.send(data);
                 })
                 .catch(err => {
@@ -453,6 +456,35 @@ function LDAPAuth(req) {
                     });
                 });
 
+            }
+        });
+    })
+}
+
+function sendMail(email) {
+    return new Promise(resolve => {
+        let transporter = nodemailer.createTransport({
+            host: "mail.ipakyulibank.uz",
+            port: 25,
+            secure: false, // true for 465, false for other ports
+            auth: {
+                user: 'g.nurmurodov@ipakyulibank', // generated ethereal user
+                pass: 'Ls142536', // generated ethereal password
+            },
+        });
+        // send mail with defined transport object
+        transporter.sendMail({
+            from: '"delta.ipakyulibank.uz" <Δ@ipakyulibank.uz>', // sender address
+            to: email, // list of receivers
+            subject: "Успешная регистрация в системе Delta", // Subject line
+            // text: "Hello world?", // plain text body
+            html: `<h1>Уважаемый сотрудник банка Ипак Йули!</h1>
+            <h2>Поздравляю с успешной регистрацией в корпоративной системы банка Ипак Йули</h2>
+            <h2>Для входа в систему пожалуйста еще раз введите данные для входа на портале</h2>`, // html body
+        }, (err, info) => {
+            if (err) resolve(false);
+            else {
+                resolve(true)
             }
         });
     })
