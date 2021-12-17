@@ -222,6 +222,7 @@ exports.LDAPAuth = async (req, res) => {
                                 if (err) res.send({
                                     success: false,
                                     data: [],
+                                    status: 'processing',
                                     message: err,
                                 })
                                 else {
